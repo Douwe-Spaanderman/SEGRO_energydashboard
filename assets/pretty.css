@@ -161,6 +161,12 @@ body {
 
 .row {
   display: flex;
+  justify-content:space-between;
+}
+
+.row-header {
+  display: flex;
+  justify-content:space-between;
 }
 
 #individual_graph,
@@ -196,13 +202,11 @@ body {
   flex-direction: column;
 }
 
-#wells {
+#productie {
   flex: 1;
 }
 
-#gas {
-  margin-right: 0;
-  padding-right: 0;
+#verbruik {
   flex: 1;
 }
 
@@ -210,17 +214,11 @@ body {
   align-items: center;
 }
 
-#oil {
-  margin-right: 0;
-  padding-right: 0;
-  margin-left: 0;
-  padding-left: 0;
+#saldo {
   flex:1;
 }
 
-#water {
-  margin-left: 0;
-  padding-left: 0;
+#zon {
   flex: 1;
 }
 
@@ -232,6 +230,23 @@ body {
 #mainContainer {
   display: flex;
   flex-direction: column;
+}
+
+.btn {
+background-color: #f1f1f1;
+}
+
+/* Style the active class, and buttons on mouse-over */
+.active, .btn:hover {
+background-color: #666;
+color: white;
+}
+
+.myDiv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  height: 100px;
 }
 
 /* Typography
