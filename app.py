@@ -8,6 +8,7 @@ from datetime import datetime, date, timedelta
 import pandas as pd
 from functools import reduce
 from scipy import signal
+import matplotlib.pyplot as plt
 
 def read_data(location):
 
@@ -112,13 +113,14 @@ def summarize_data(data, month, weer):
     used = saldo - produced
     weer = float(data["zon"].sum())
     
-    return [f'{int(produced)} kW', f'{int(used)} kW', f'{int(saldo)} kW', f'{int(weer)} Uur']
+    return [f'{int(produced)} kWh', f'{int(used)} kWh', f'{int(saldo)} kWh', f'{int(weer)} Uur']
 
 def figure1a_data(data_cache, adresses, month, layout):
     # Overall info
-    fig = go.Figure()
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     colors = []
+    line_color = ['rgb(99, 110, 250)', 'rgb(239, 85, 59)', 'rgb(0, 204, 150)', 'rgb(171, 99, 250)', 'rgb(255, 161, 90)', 'rgb(25, 211, 243)', 'rgb(255, 102, 146)', 'rgb(182, 232, 128)', 'rgb(255, 151, 255)', 'rgb(254, 203, 82)']
     for j in range(0, len(data_cache["Maand"].unique())):
         if j >= int(month[0]) and j < int(month[1]):
             colors.append(1)
@@ -127,7 +129,8 @@ def figure1a_data(data_cache, adresses, month, layout):
 
     for i, adress in enumerate(adresses):
         data = data_cache[data_cache["adress"] == adress]
-        data = data.groupby(['Maand'], as_index = False, sort=False).agg({'OP value': 'sum', "dag": "nunique", 'BP montly value': "mean", "OP value daysum": "mean", "OP value weeksum": 'mean'})
+        data["Max value"] = data["OP value"]
+        data = data.groupby(['Maand'], as_index = False, sort=False).agg({'OP value': 'sum', "dag": "nunique", 'BP montly value': "mean", "OP value daysum": "mean", "OP value weeksum": 'mean', 'Max value': 'max'})
         data["used"] = [float(x["OP value"]) - float(x["BP montly value"]) for index, x in data.iterrows()]
         data = data.round(1)
         text_data = list(zip([str(x) for x in data["OP value daysum"]], [str(x) for x in data["OP value weeksum"]]))
@@ -140,7 +143,8 @@ def figure1a_data(data_cache, adresses, month, layout):
                 marker=dict(
                     opacity=colors,
                     ),
-            ))
+            ),
+            secondary_y=False)
 
             fig.add_trace(go.Bar(
                 x=data['Maand'],
@@ -149,7 +153,8 @@ def figure1a_data(data_cache, adresses, month, layout):
                 marker=dict(
                     opacity=colors,
                     ),
-            ))
+            ),
+            secondary_y=False)
 
             fig.add_trace(go.Bar(
                 x=data['Maand'],
@@ -160,8 +165,21 @@ def figure1a_data(data_cache, adresses, month, layout):
                     ),
                 customdata = text_data,
                 hovertemplate = "%{y}<br>dagelijks gemiddelde: %{customdata[0]} </br>wekelijks gemiddelde: %{customdata[1]}",
-            ))
+            ),
+            secondary_y=False)
 
+            fig.add_trace(go.Scatter(
+                x=data['Maand'],
+                y=data["Max value"],
+                hoverinfo='skip',
+                showlegend=False,
+                mode='lines',
+                line=dict(
+                    color=line_color[i],
+                    ),
+            ),
+            secondary_y=True)
+            
         else:
             fig.add_trace(go.Bar(
                 x=data['Maand'],
@@ -170,9 +188,23 @@ def figure1a_data(data_cache, adresses, month, layout):
                 customdata = text_data,
                 marker=dict(
                     opacity=colors,
+                    color=line_color[i]
                     ),
                 hovertemplate = "%{y}<br>dagelijks gemiddelde: %{customdata[0]} </br>wekelijks gemiddelde: %{customdata[1]}",
-            ))
+            ),
+            secondary_y=False)
+
+            fig.add_trace(go.Scatter(
+                x=data['Maand'],
+                y=data["Max value"],
+                hoverinfo='skip',
+                showlegend=False,
+                mode='lines',
+                line=dict(
+                    color=line_color[i],
+                    ),
+            ),
+            secondary_y=True)
 
     fig.update_layout(layout,
         title_text='Compleet profiel per maand',
@@ -189,15 +221,16 @@ def figure1a_data(data_cache, adresses, month, layout):
             y=-0.4,
             xanchor="center",
             x=0.25,
-            ),
+            )
         )
 
     fig.update_xaxes(showline=False, showgrid=False)
-    fig.update_yaxes(showline=True, zeroline=True, zerolinecolor="black", linecolor="black", zerolinewidth=1)
+    fig.update_yaxes(showline=True, zeroline=True, zerolinecolor="black", linecolor="black", zerolinewidth=1, range=[-15000, 30000])
+    fig.update_yaxes(title_text="Maximale kWh", secondary_y=True, zeroline=False, range=[-20, 40])
 
     return fig
 
-def figure1b_data(data_cache, layout):
+def figure1b_data(data_cache, capaciteit, ophalen, layout):
     # Overall info
     fig = go.Figure()
 
@@ -206,8 +239,35 @@ def figure1b_data(data_cache, layout):
 
     data["delta"] = data["OP value"] - best_line
 
-    overproduced = sum([0 if int(x) <= 0 else x for x in data["OP value"]])
-    underproduced = sum([0 if int(x) > 0 else x for x in data["OP value"]])
+    data["positief"] = [0 if int(x) <= 0 else x for x in data["OP value"]]
+    data["negatief"] = [0 if int(x) > 0 else x for x in data["OP value"]]
+
+    # Create saldo
+    data["saldo"] = 0
+    for idx in range(len(data)):
+        x = data.loc[idx, "OP value"]
+        if idx <= 0:
+            data.loc[idx, "saldo"] = x
+        elif x >= 0:
+            x = x + data.loc[idx-1, "saldo"]
+            if x > capaciteit:
+                data.loc[idx, "saldo"] = capaciteit
+            else:
+                data.loc[idx, "saldo"] = x
+        else:
+            # Check if ophalen > capaciteteit
+            if ophalen > capaciteit:
+                ophalen = capaciteit
+
+            # do by 30* instead of actuall number of days
+            y = (ophalen * 6 * 30) + x + data.loc[idx-1, "saldo"]
+            if y > capaciteit:
+                data.loc[idx, "saldo"] = capaciteit
+            else:
+                data.loc[idx, "saldo"] = y
+
+    overproduced = data["positief"].sum()
+    underproduced = data["negatief"].sum()
 
     overproduced_perfect = sum([0 if int(x) <= 0 else x for x in data["delta"]])
     underproduced_perfect = sum([0 if int(x) > 0 else x for x in data["delta"]])
@@ -249,6 +309,19 @@ def figure1b_data(data_cache, layout):
         ),
     ))
 
+    fig.add_trace(go.Scatter(
+        x=data['Maand'],
+        y=data["saldo"],
+        name = 'Saldo op basis van ingevoerde capaciteit en opname uit net',
+        mode='lines',
+        line=dict(
+            shape="spline",
+            smoothing=0.8,
+            #color='#fac1b7',
+            width=4,
+        )
+    ))
+
     fig.update_layout(layout,
         title_text='Compleet profiel per maand',
         hovermode='x unified',
@@ -270,7 +343,7 @@ def figure1b_data(data_cache, layout):
     fig.update_xaxes(showline=False, showgrid=False)
     fig.update_yaxes(showline=True, zeroline=True, zerolinecolor="black", linecolor="black", zerolinewidth=1)
 
-    return fig, [f'{int(overproduced)} kW', f'{abs(int(underproduced))} kW', f'{int(best_line)} kW', f'{abs(int(underproduced_perfect))} kW']
+    return fig, [f'{int(overproduced)} kWh', f'{abs(int(underproduced))} kWh', f'{int(best_line)} kWh', f'{abs(int(underproduced_perfect))} kWh']
 
 def figure2_data(data_cache, adresses, layout):
     fig = go.Figure()
@@ -501,6 +574,8 @@ def figure4_data(data, layout):
                  dict(text='Used', x=0.8, y=0.5, font_size=20, showarrow=False)]
     )
 
+    
+
     return fig
 
 def figure5_data(data, week, layout):
@@ -675,7 +750,7 @@ layout = dict(
         'zerolinecolor':'rgba(0.75,0.75,0.75, 0.3)',
         'zerolinewidth':1,
         'gridcolor':'rgba(0.75,0.75,0.75, 0.3)',
-        'title':None,
+        'title':"kWh",
         'showticklabels': True
     },
     xaxis={
@@ -690,7 +765,7 @@ layout = dict(
     autosize=True,
     plot_bgcolor="#f9f9f9",
     paper_bgcolor="#f9f9f9",
-    legend=dict(font=dict(size=10), orientation='h'),
+    legend=dict(font=dict(size=10), orientation='h')
 ) 
 
 app.layout = html.Div([
@@ -779,6 +854,30 @@ app.layout = html.Div([
                     ],
                     id="myDIV",
                     className="myDiv"
+                    ),
+                    html.Div(
+                        'Hoeveelheid capaciteit in kWh: ',
+                        id='capaciteit-slider-output',
+                        className="control_label"
+                    ),
+                    dcc.Slider(
+                        id='capaciteit-slider',
+                        marks={i: '{}'.format(1000 ** i) for i in range(4)},
+                        max=75000,
+                        value=5000,
+                        step=100
+                    ),
+                    html.Div(
+                        'Hoeveelheid kWh op te halen per uur in winternachten (12-6): ',
+                        id='ophalen-slider-output',
+                        className="control_label"
+                    ),
+                    dcc.Slider(
+                        id='ophalen-slider',
+                        marks={i: '{}'.format(10 ** i) for i in range(4)},
+                        max=250, 
+                        value=0,
+                        step=0.5
                     ),
                 ],
                 className="pretty_container four columns"
@@ -932,12 +1031,16 @@ def set_active(*args):
     Output('saldo_header', 'children'),
     Output('weer_text', 'children'),
     Output('weer_header', 'children'),
+    Output('capaciteit-slider-output', 'children'),
+    Output('ophalen-slider-output', 'children'),
     Input('persisted-adress', 'value'),
     Input('month-slider', 'value'),
+    Input('capaciteit-slider', 'value'),
+    Input('ophalen-slider', 'value'),
     Input('btn-1', 'n_clicks'),
     Input('btn-2', 'n_clicks')
 )
-def main_figure_display(adress, month, btn_1, btn_2):
+def main_figure_display(adress, month, capaciteit, ophalen, btn_1, btn_2):
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
 
     global cache_changed_button
@@ -953,7 +1056,7 @@ def main_figure_display(adress, month, btn_1, btn_2):
 
         month_data = correct_month(cache_data, month)
         data = standardized_frame(month_data, adress)
-        fig, summary = figure1b_data(data, layout)
+        fig, summary = figure1b_data(data, capaciteit, ophalen, layout)
         header = ["Overproductie volgens 0 lijn", "Capaciteit eisen volgens 0 lijn", "Gemiddelde (Ideaal)", "Capaciteit eisen volgens Ideaal"]
 
     else:
@@ -964,7 +1067,7 @@ def main_figure_display(adress, month, btn_1, btn_2):
         fig = figure1a_data(data, adress, month, layout)
         header = ["Productie", "Verbruik", "Saldo", "Zon"]
     
-    return fig, summary[0], header[0], summary[1], header[1], summary[2], header[2], summary[3], header[3]
+    return fig, summary[0], header[0], summary[1], header[1], summary[2], header[2], summary[3], header[3], f"Selecteer de hoeveelheid capaciteit in kWh: {capaciteit}", f"Hoeveelheid kWh op te halen per uur in winternachten (12-6): {ophalen}"
 
 @app.callback(
     Output('week-slider-container', 'children'),
