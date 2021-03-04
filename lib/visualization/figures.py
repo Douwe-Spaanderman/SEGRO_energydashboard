@@ -358,8 +358,8 @@ def figure3_data(data, capaciteit, ophalen, week=False):
     else:
         text_tile = '24 uur profiel van de geselecteerde maand(en)'
 
-    if opladen != 0:
-        print(data)
+    #if opladen != 0:
+    #    print(data)
 
     data["time"] = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S').strftime("%H:%M:%S") for x in data["Date"]]
     data = data.groupby(['time', 'soort_dag'], as_index = False, sort=False).agg({'OP value': 'mean', "dag": "nunique"})
