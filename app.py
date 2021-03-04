@@ -3,6 +3,8 @@
 ####################################
 
 # Own lib files
+#import sys
+#sys.path.insert(1, os.path.abspath(".."))
 from lib.visualization.figures import *
 from lib.auth.check import EncryptedAuth
 
