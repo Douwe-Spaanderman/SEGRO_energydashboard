@@ -9,6 +9,7 @@ from scipy import signal
 import numpy as np
 from datetime import datetime, date, timedelta
 import pandas as pd
+from lib.utils.utils import human_format
 
 ### Setup layout and color
 pie_colors = dict(
@@ -273,7 +274,7 @@ def figure1b_data(data_cache, capaciteit, ophalen):
     fig.update_xaxes(showline=False, showgrid=False)
     fig.update_yaxes(showline=True, zeroline=True, zerolinecolor="black", linecolor="black", zerolinewidth=1)
 
-    return fig, [f'{int(overproduced)} kWh', f'{abs(int(underproduced))} kWh', f'{int(best_line)} kWh', f'{abs(int(underproduced_perfect))} kWh']
+    return fig, [f'{human_format(int(overproduced))}', f'{human_format(abs(int(underproduced)))}', f'{human_format(int(best_line))}', f'{human_format(abs(int(underproduced_perfect)))}']
 
 def figure2_data(data_cache, adresses):
     fig = go.Figure()
@@ -357,19 +358,9 @@ def figure3_data(data, capaciteit, ophalen, week=False):
         data = data[data["Week"] == week]
     else:
         text_tile = '24 uur profiel van de geselecteerde maand(en)'
-
-    #if opladen != 0:
-    #    print(data)
-
     data["time"] = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S').strftime("%H:%M:%S") for x in data["Date"]]
     data = data.groupby(['time', 'soort_dag'], as_index = False, sort=False).agg({'OP value': 'mean', "dag": "nunique"})
-    
-    #ophalen = ophalen/4
-    #data["snachts opladen"] = 0
-    #data["capaciteit"] = 0
-    #data[""]
-    #data.loc[:24, "snachts opladen"] = -ophalen
-    #data.loc[96:120, "snachts opladen"] = -ophalen
+
 
     fig1_tmp = data[data["soort_dag"] == "Werkdag"]
     fig2_tmp = data[data["soort_dag"] == "Weekend"]

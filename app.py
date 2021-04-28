@@ -7,6 +7,7 @@
 #sys.path.insert(1, os.path.abspath(".."))
 from lib.visualization.figures import *
 from lib.auth.check import EncryptedAuth
+from lib.utils.utils import human_format
 
 import requests
 from datetime import datetime, date, timedelta
@@ -125,8 +126,8 @@ def summarize_data(data, month, weer):
     produced = float(data["BP montly value"].sum())
     used = saldo - produced
     weer = float(data["zon"].sum())
-    
-    return [f'{int(produced)} kWh', f'{int(used)} kWh', f'{int(saldo)} kWh', f'{int(weer)} Uur']
+
+    return [f'{human_format(int(produced))}', f'{human_format(int(used))}', f'{human_format(int(saldo))}', f'{int(weer)} Uur']
 
 ####################################
 ###       Setup Application      ###
@@ -149,7 +150,7 @@ auth = EncryptedAuth(
 # Get names
 cache_data = read_data("data/data.pkl")
 
-adresses = ['Tufsteen 4 + 5', 'Tufsteen 6', 'Tufsteen 7', 'Tufsteen 8 + 9']
+adresses = ["Tufsteen 4", "Tufsteen 5", "Tufsteen 6", "Tufsteen 7", "Tufsteen 8", "Tufsteen 9"]
 maanden = cache_data["Maand"].unique()
 maanden = dict(zip(range(0, len(maanden)), list(maanden)))
 
