@@ -45,7 +45,7 @@ maanden = cache_data["Maand"].unique()
 maanden = dict(zip(range(0, len(maanden)), list(maanden)))
 
 weer = pd.read_pickle("data/weer.pkl")
-
+print(cache_data)
 # global cache for buttons
 cache_changed_button = []
 

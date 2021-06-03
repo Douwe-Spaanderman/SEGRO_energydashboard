@@ -138,5 +138,8 @@ cython_debug/
 # Personal ignore
 *.DS_Store
 auth/client_secret.json
-#auth/pass.json
-#data/*
+
+# Remove for heroku
+lib/auth/*
+lib/fetch/*
+data/*
